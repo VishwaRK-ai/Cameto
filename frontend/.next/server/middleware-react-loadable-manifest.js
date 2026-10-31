@@ -1,1 +1,0 @@
-self.__REACT_LOADABLE_MANIFEST="{\"app/page.tsx -> react-force-graph-2d\":{\"id\":\"app/page.tsx -> react-force-graph-2d\",\"files\":[\"static/chunks/_app-pages-browser_node_modules_react-force-graph-2d_dist_react-force-graph-2d_mjs.js\"]}}"
