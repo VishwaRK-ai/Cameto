@@ -1,0 +1,35 @@
+# Environment variables and secrets
+.env
+.env*.local
+frontend/.env.local
+*.pem
+receipts/transparency_signing_key.json
+
+# Local vector database storage
+chroma_storage/
+
+# Python caches and virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# Node.js and Next.js artifacts
+node_modules/
+frontend/node_modules/
+frontend/.next/
+.next/
+out/
+build/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Operating System Files
+.DS_Store
+Thumbs.db

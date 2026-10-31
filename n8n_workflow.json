@@ -1,0 +1,233 @@
+{
+  "name": "Real-Time Fact & Deepfake Verification Pipeline",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger-manual",
+      "name": "Manual / Schedule Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://old.reddit.com/r/worldnews/new.json?limit=5",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json, text/plain, */*"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "en-US,en;q=0.9"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "reddit-fetch",
+      "name": "Fetch Reddit Posts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [440, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fallback Mock Ingestion Node for Reliable Hackathon Demos\n// Use this if Reddit's anti-bot Cloudflare blocks live unauthenticated calls\nreturn [\n  {\n    json: {\n      claim_text: \"Viral photo alleges moon collided with massive asteroid yesterday.\",\n      post_url: \"https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=800\",\n      has_image: true,\n      image_url: \"https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=800\",\n      platform: \"Reddit\"\n    }\n  },\n  {\n    json: {\n      claim_text: \"Officials report new infrastructure bill signed into law.\",\n      post_url: \"https://www.reuters.com\",\n      has_image: false,\n      image_url: null,\n      platform: \"Reddit\"\n    }\n  }\n];"
+      },
+      "id": "mock-reddit-feed",
+      "name": "Demo Viral Claims (Failsafe)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 420]
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputData = $input.first().json;\n\n// Handle raw Reddit JSON response\nif (inputData && inputData.data && inputData.data.children) {\n  const children = inputData.data.children;\n  const results = [];\n\n  for (const post of children) {\n    const data = post.data || {};\n    const title = data.title || '';\n    const postUrl = data.url_overridden_by_dest || data.url || '';\n    \n    const isImage = /\\.(jpg|jpeg|png|webp|gif)$/i.test(postUrl) || postUrl.includes('i.redd.it') || (data.post_hint === 'image');\n    \n    results.push({\n      json: {\n        claim_text: title,\n        post_url: postUrl,\n        has_image: isImage,\n        image_url: isImage ? postUrl : null,\n        platform: 'Reddit'\n      }\n    });\n  }\n  return results;\n}\n\n// If already parsed or from mock node, pass through\nreturn $input.all();"
+      },
+      "id": "parse-reddit-posts",
+      "name": "Extract Post & Image Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.has_image }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-image-present",
+      "name": "Has Image?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8001/api/detect-image",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"image_url\": \"{{ $json.image_url }}\"\n}",
+        "options": {}
+      },
+      "id": "detect-deepfake-score",
+      "name": "Detect Deepfake (Port 8001)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1140, 200]
+    },
+    {
+      "parameters": {
+        "values": {
+          "number": [
+            {
+              "name": "deepfake_score",
+              "value": 0
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-zero-deepfake",
+      "name": "Set Deepfake = 0",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1140, 420]
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputItem = $input.first().json;\nconst prevData = $('Has Image?').item.json;\n\nreturn [{\n  json: {\n    claim_text: prevData.claim_text,\n    deepfake_score: inputItem.deepfake_score || 0.0,\n    platform: prevData.platform,\n    image_url: prevData.image_url\n  }\n}];"
+      },
+      "id": "format-rag-input",
+      "name": "Format Audit Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1380, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8000/api/audit",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"claim_text\": {{ JSON.stringify($json.claim_text) }},\n  \"deepfake_score\": {{ $json.deepfake_score }},\n  \"platform\": \"{{ $json.platform }}\"\n}",
+        "options": {}
+      },
+      "id": "audit-verification-node",
+      "name": "RAG Fact-Verification (Port 8000)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1620, 300]
+    }
+  ],
+  "connections": {
+    "Manual / Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Reddit Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Reddit Posts": {
+      "main": [
+        [
+          {
+            "node": "Extract Post & Image Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Demo Viral Claims (Failsafe)": {
+      "main": [
+        [
+          {
+            "node": "Extract Post & Image Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Post & Image Data": {
+      "main": [
+        [
+          {
+            "node": "Has Image?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Image?": {
+      "main": [
+        [
+          {
+            "node": "Detect Deepfake (Port 8001)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Deepfake = 0",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect Deepfake (Port 8001)": {
+      "main": [
+        [
+          {
+            "node": "Format Audit Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Deepfake = 0": {
+      "main": [
+        [
+          {
+            "node": "Format Audit Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Audit Input": {
+      "main": [
+        [
+          {
+            "node": "RAG Fact-Verification (Port 8000)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

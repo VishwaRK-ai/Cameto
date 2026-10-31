@@ -1,0 +1,27 @@
+{
+  "name": "DigitalScam - Real-Time Fact & Deepfake Audit",
+  "short_name": "DigitalScam",
+  "description": "Multi-Agent Fact-Verification, Deepfake Audit & Manipulation Prebunking Engine",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#070b14",
+  "theme_color": "#06b6d4",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "share_target": {
+    "action": "/",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
+}
+
