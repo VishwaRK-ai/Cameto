@@ -10,7 +10,7 @@ import urllib.request
 
 import chromadb
 from dotenv import load_dotenv
-from sentence_transformers import SentenceTransformer
+from agents import GeminiEmbedder
 
 # Load environment variables without overwriting
 load_dotenv()
@@ -245,7 +245,7 @@ def hydrate_chroma_database():
     """
     Main database hydration pipeline:
     1. Connects to ChromaDB PersistentClient at ./chroma_storage.
-    2. Loads SentenceTransformer all-MiniLM-L6-v2.
+    2. Loads GeminiEmbedder (models/text-embedding-004).
     3. Fetches 50 verified facts.
     4. Upserts documents, embeddings, and metadata into collection verified_facts.
     """
@@ -257,11 +257,21 @@ def hydrate_chroma_database():
     print(f"[*] Initializing ChromaDB PersistentClient at '{chroma_path}'...")
     chroma_client = chromadb.PersistentClient(path=chroma_path)
     collection = chroma_client.get_or_create_collection(name="verified_facts")
-    print(f"[*] Collection 'verified_facts' ready. Current doc count: {collection.count()}")
 
-    print("[*] Loading embedding model 'all-MiniLM-L6-v2'...")
-    embedder = SentenceTransformer("all-MiniLM-L6-v2")
-    print("[*] Embedding model loaded successfully.")
+    print("[*] Initializing lightweight Google Gemini Embedder (models/text-embedding-004)...")
+    embedder = GeminiEmbedder()
+
+    # Dimension compatibility check
+    test_emb = embedder.encode("test").tolist()
+    try:
+        collection.query(query_embeddings=[test_emb], n_results=1)
+    except Exception as dim_err:
+        if "dimension" in str(dim_err).lower():
+            print(f"[*] Recreating collection 'verified_facts' for {len(test_emb)} dimensions...")
+            chroma_client.delete_collection("verified_facts")
+            collection = chroma_client.get_or_create_collection(name="verified_facts")
+
+    print(f"[*] Collection 'verified_facts' ready. Current doc count: {collection.count()}")
 
     print("[*] Fetching 50 latest verified claims from Google Fact Check Tools API...")
     verified_data = get_verified_claims(target_count=50)

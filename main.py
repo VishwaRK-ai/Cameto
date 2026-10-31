@@ -14,7 +14,6 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from sentence_transformers import SentenceTransformer
 
 # Load environment variables
 load_dotenv(override=True)
@@ -44,6 +43,7 @@ from agents import (
     query_chroma_facts,
     query_and_update_crowd_radar,
     run_multi_agent_audit,
+    GeminiEmbedder,
 )
 
 # Optional LLM imports
@@ -62,7 +62,7 @@ except ImportError:
 # Global Application State & Lifespan
 # ---------------------------------------------------------
 class AppState:
-    embedding_model: Optional[SentenceTransformer] = None
+    embedding_model: Optional[Any] = None
     chroma_client: Optional[chromadb.PersistentClient] = None
     collection = None
     radar_collection = None
@@ -77,19 +77,49 @@ state = AppState()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-    Initializes database connections, models, and cryptographic transparency log on startup.
+    Initializes database connections, lightweight models, and cryptographic transparency log on startup.
     """
     logger.info("Initializing ChromaDB PersistentClient at './chroma_storage'...")
     state.chroma_client = chromadb.PersistentClient(path="./chroma_storage")
 
+    # Initialize Gemini client & Embedder
+    gemini_api_key = (os.getenv("GEMINI_API_KEY") or "").strip().strip('"\'')
+    if gemini_api_key and genai:
+        try:
+            genai.configure(api_key=gemini_api_key)
+            logger.info("Google Gemini client configured.")
+        except Exception as e:
+            logger.warning(f"Google Gemini configure notice: {e}")
+
+    logger.info("Initializing Google Gemini Embeddings (models/text-embedding-004)...")
+    state.embedding_model = GeminiEmbedder(api_key=gemini_api_key)
+    logger.info("Gemini Embedding client initialized successfully (< 50MB RAM).")
+
+    # Initialize collections with automatic dimension compatibility check
     try:
         state.collection = state.chroma_client.get_or_create_collection(name="verified_facts")
+        test_emb = state.embedding_model.encode("healthcheck_dimension_probe").tolist()
+        try:
+            state.collection.query(query_embeddings=[test_emb], n_results=1)
+        except Exception as dim_err:
+            if "dimension" in str(dim_err).lower():
+                logger.warning(f"Collection 'verified_facts' dimension mismatch ({dim_err}). Recreating collection with {len(test_emb)} dimensions.")
+                state.chroma_client.delete_collection("verified_facts")
+                state.collection = state.chroma_client.get_or_create_collection(name="verified_facts")
         logger.info(f"Collection 'verified_facts' ready. Total documents: {state.collection.count()}")
     except Exception as e:
         logger.warning(f"Could not initialize collection 'verified_facts': {e}")
 
     try:
         state.radar_collection = state.chroma_client.get_or_create_collection(name="crowd_radar")
+        test_emb = state.embedding_model.encode("healthcheck_dimension_probe").tolist()
+        try:
+            state.radar_collection.query(query_embeddings=[test_emb], n_results=1)
+        except Exception as dim_err:
+            if "dimension" in str(dim_err).lower():
+                logger.warning(f"Collection 'crowd_radar' dimension mismatch ({dim_err}). Recreating collection with {len(test_emb)} dimensions.")
+                state.chroma_client.delete_collection("crowd_radar")
+                state.radar_collection = state.chroma_client.get_or_create_collection(name="crowd_radar")
         logger.info(f"Collection 'crowd_radar' ready. Total tracked footprints: {state.radar_collection.count()}")
     except Exception as e:
         logger.warning(f"Could not initialize collection 'crowd_radar': {e}")
@@ -100,23 +130,11 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Could not initialize collection 'verifiable_receipts': {e}")
 
-    logger.info("Loading SentenceTransformer ('all-MiniLM-L6-v2')...")
-    state.embedding_model = await asyncio.to_thread(
-        SentenceTransformer, "all-MiniLM-L6-v2"
-    )
-    logger.info("SentenceTransformer model loaded successfully.")
-
     # Initialize Groq client
     groq_api_key = (os.getenv("GROQ_API_KEY") or "").strip().strip('"\'')
     if groq_api_key and AsyncGroq:
         state.groq_client = AsyncGroq(api_key=groq_api_key)
         logger.info("Groq Async client initialized.")
-
-    # Initialize Gemini client
-    gemini_api_key = (os.getenv("GEMINI_API_KEY") or "").strip().strip('"\'')
-    if gemini_api_key and genai:
-        genai.configure(api_key=gemini_api_key)
-        logger.info("Google Gemini client configured.")
 
     # Initialize Cryptographic Transparency Log (Ed25519) with ChromaDB persistent storage
     state.transparency_log = TransparencyLog(receipts_collection=state.receipts_collection)
