@@ -148,6 +148,7 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStage, setLoadingStage] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [liveTrace, setLiveTrace] = useState<string[]>([]);
   const [copiedReceipt, setCopiedReceipt] = useState(false);
 
   const handleCopyReceipt = (text: string) => {
@@ -308,7 +309,10 @@ export default function Dashboard() {
       }
 
       // Step 2: Agentic Live Evidence Retrieval, Crowd Radar & Multi-Agent Debate
-      setLoadingStage("Stage 3/3: Live Google Fact Check API, Crowd Radar vector check & Multi-Agent Debate...");
+      setLoadingStage("Stage 3/3: Streaming ReAct live tools & Multi-Agent Debate...");
+      const traceAccumulator: string[] = [];
+      setLiveTrace([]);
+
       const ragResponse = await fetch(`${API_BASE_URL}/api/audit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -324,7 +328,47 @@ export default function Dashboard() {
         throw new Error(errJson.detail || `Audit failed with HTTP status ${ragResponse.status}`);
       }
 
-      const auditData = await ragResponse.json();
+      if (!ragResponse.body) {
+        throw new Error("No response stream received from backend.");
+      }
+
+      const reader = ragResponse.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let buffer = "";
+      let auditData: any = null;
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const events = buffer.split("\n\n");
+        buffer = events.pop() || "";
+
+        for (const evt of events) {
+          const trimmedEvt = evt.trim();
+          if (!trimmedEvt.startsWith("data:")) continue;
+
+          try {
+            const rawJson = trimmedEvt.replace(/^data:\s*/, "");
+            const parsed = JSON.parse(rawJson);
+
+            if (parsed.type === "trace" && parsed.message) {
+              traceAccumulator.push(parsed.message);
+              setLiveTrace([...traceAccumulator]);
+              setLoadingStage(parsed.message.replace(/^>\s*/, ""));
+            } else if (parsed.type === "result" && parsed.payload) {
+              auditData = parsed.payload;
+            }
+          } catch (pe) {
+            console.debug("SSE chunk parse notice:", pe);
+          }
+        }
+      }
+
+      if (!auditData) {
+        throw new Error("The audit pipeline completed without yielding a final result payload.");
+      }
 
       const newAuditResult: AuditResult = {
         verdict: auditData.verdict || "Unverified",
@@ -343,7 +387,7 @@ export default function Dashboard() {
         matched_sources: auditData.matched_sources || [],
         sibling_domains: auditData.sibling_domains || [],
         atomic_claims: auditData.atomic_claims || [],
-        agent_trace: auditData.agent_trace || [],
+        agent_trace: auditData.agent_trace || traceAccumulator,
         detected_language: auditData.detected_language || "English",
         deepfake_score: deepfakeScore,
         claim_text: effectiveClaim,
@@ -841,7 +885,7 @@ export default function Dashboard() {
             </div>
 
             {/* Live Agent Execution Trace Terminal */}
-            {currentResult && currentResult.agent_trace && currentResult.agent_trace.length > 0 && (
+            {((currentResult && currentResult.agent_trace && currentResult.agent_trace.length > 0) || (isLoading && liveTrace.length > 0)) && (
               <div className="rounded-2xl bg-black/90 border border-slate-800 shadow-2xl overflow-hidden animate-fadeIn">
                 <div className="bg-slate-900/90 px-4 py-2.5 border-b border-slate-800 flex items-center justify-between">
                   <div className="flex items-center space-x-2">
@@ -855,13 +899,17 @@ export default function Dashboard() {
                       <span>ReAct Agent Execution Trail (Live Trace)</span>
                     </span>
                   </div>
-                  <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/40 flex items-center space-x-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block" />
-                    <span>EXECUTION COMPLETE</span>
+                  <span className={`text-[10px] font-mono px-2 py-0.5 rounded border flex items-center space-x-1 ${
+                    isLoading
+                      ? "text-cyan-400 bg-cyan-950/60 border-cyan-800/40"
+                      : "text-emerald-400 bg-emerald-950/60 border-emerald-800/40"
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full inline-block ${isLoading ? "bg-cyan-400 animate-ping" : "bg-emerald-400"}`} />
+                    <span>{isLoading ? "STREAMING TOOLS LIVE..." : "EXECUTION COMPLETE"}</span>
                   </span>
                 </div>
                 <div className="p-4 font-mono text-xs text-slate-300 space-y-1.5 max-h-56 overflow-y-auto leading-relaxed bg-[#050811]">
-                  {currentResult.agent_trace.map((step, idx) => (
+                  {(isLoading && liveTrace.length > 0 ? liveTrace : (currentResult?.agent_trace || [])).map((step, idx) => (
                     <div
                       key={idx}
                       className={`${

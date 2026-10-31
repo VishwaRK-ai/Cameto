@@ -1,0 +1,52 @@
+{
+  "receipt_id": "rcpt_dbb14f90ecac1266",
+  "payload": {
+    "receipt_id": "rcpt_dbb14f90ecac1266",
+    "claim_hash": "9ebdcc1ddac78c9e3ac1d1643133b7b20d8a0617b70b29c6c8d4056f1068aaae",
+    "evidence_hashes": {},
+    "atomic_claims": [
+      {
+        "sub_claim": "Suspicious login attempt detected from a device in a different region at 03:14 AM.",
+        "verdict": "Unverified",
+        "highlight_color": "gray",
+        "evidence_id": "E0",
+        "exact_quote": "We detected a suspicious login attempt to your account from a device in a different region at 03:14 AM.",
+        "quote_verified": false
+      },
+      {
+        "sub_claim": "Account access has been temporarily restricted for safety.",
+        "verdict": "Unverified",
+        "highlight_color": "gray",
+        "evidence_id": "E0",
+        "exact_quote": "If this was not you, your account access has been temporarily restricted for your safety.",
+        "quote_verified": false
+      },
+      {
+        "sub_claim": "Identity verification is required immediately by confirming configuration parameters.",
+        "verdict": "Unverified",
+        "highlight_color": "gray",
+        "evidence_id": "E0",
+        "exact_quote": "To restore complete access and secure your funds, you must verify your identity immediately by confirming your configuration parameters.",
+        "quote_verified": false
+      },
+      {
+        "sub_claim": "Click the secure link within 2 hours or assets will be permanently frozen.",
+        "verdict": "Unverified",
+        "highlight_color": "gray",
+        "evidence_id": "E0",
+        "exact_quote": "Click the secure link below to resolve this within the next 2 hours, or your assets will be permanently frozen: secure-auth-verification-portal.net",
+        "quote_verified": false
+      }
+    ],
+    "model_id": "groq-multi-agent+gemini-3.8-flash",
+    "verdict": "False",
+    "confidence_score": 95.0,
+    "timestamp": "2026-10-31T18:22:23.675450Z"
+  },
+  "signature": "18291e3d84c0431a2a2dfcf4335970cc464e850c11a09ff9669a4962648ed2b9bcf629fa19a1d3c3dd79f2ee62fa23d7970ee106a431b75c2f652138e1fc4e0f",
+  "public_key": "233b45324ad3040832743730759c7851ae4a6f97a412f42080358fb5df36bf5f",
+  "algorithm": "Ed25519",
+  "verified_sources": [],
+  "archived_sources": [],
+  "created_at": "2026-10-31T18:22:23.675450Z"
+}

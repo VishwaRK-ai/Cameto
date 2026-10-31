@@ -1,0 +1,62 @@
+{
+  "receipt_id": "rcpt_a640f579c3de3f4e",
+  "payload": {
+    "receipt_id": "rcpt_a640f579c3de3f4e",
+    "claim_hash": "dffdc5d2c2101a63e67a5d53506e12f3c9217107fba6acb4d153921c01cc5764",
+    "evidence_hashes": {
+      "E1": "4334a04b9556677393c2ca92e7308ae2500ec56d0b25ef340e9487ab037f8c8d"
+    },
+    "atomic_claims": [
+      {
+        "sub_claim": "The IT Minister announced an exclusive financial technology subsidy package for digital early adopters at the India AI Impact Summit 2026 concluding session.",
+        "verdict": "Unverified",
+        "highlight_color": "gray",
+        "evidence_id": "E0",
+        "exact_quote": "",
+        "quote_verified": false
+      },
+      {
+        "sub_claim": "Citizens who verify their digital footprint within the next 24 hours are eligible for a direct technology rebate incentive of \u20b94,500 deposited straight into their linked account.",
+        "verdict": "Unverified",
+        "highlight_color": "gray",
+        "evidence_id": "E0",
+        "exact_quote": "",
+        "quote_verified": false
+      },
+      {
+        "sub_claim": "The minister stated \"We are accelerating national digital infrastructure\" in a live stream briefing.",
+        "verdict": "Unverified",
+        "highlight_color": "gray",
+        "evidence_id": "E0",
+        "exact_quote": "",
+        "quote_verified": false
+      },
+      {
+        "sub_claim": "Users must secure their transaction allocation using the priority gateway.",
+        "verdict": "Unverified",
+        "highlight_color": "gray",
+        "evidence_id": "E0",
+        "exact_quote": "",
+        "quote_verified": false
+      },
+      {
+        "sub_claim": "The portal https://india-ai-mission-refunds-portal.org is a secure confirmation portal for claiming the rebate.",
+        "verdict": "False",
+        "highlight_color": "red",
+        "evidence_id": "E1",
+        "exact_quote": "Domain 'india-ai-mission-refunds-portal.org' extracted (python-whois module optional).",
+        "quote_verified": true
+      }
+    ],
+    "model_id": "groq-multi-agent+gemini-3.8-flash",
+    "verdict": "Unverified",
+    "confidence_score": 70.0,
+    "timestamp": "2026-10-31T18:23:27.935446Z"
+  },
+  "signature": "2b2465f0d4d41973a713269e3c12e4fd72b0b606f5d4ee4214f6e442309db1320ca69e8f89be94ba4608ab9239a77e753dc20e0eff56bd37ec430974a3ba3c0b",
+  "public_key": "233b45324ad3040832743730759c7851ae4a6f97a412f42080358fb5df36bf5f",
+  "algorithm": "Ed25519",
+  "verified_sources": [],
+  "archived_sources": [],
+  "created_at": "2026-10-31T18:23:27.935446Z"
+}
