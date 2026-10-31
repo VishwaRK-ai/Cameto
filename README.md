@@ -209,14 +209,13 @@ DigitalScam/
 
 ## 🔑 Authoritative Public Key
 
-DigitalScam uses a pinned public key model to protect against receipt forgery. The server's Ed25519 public verification key is derived deterministically from the authoritative `SIGNING_SECRET_SEED` in the environment.
+DigitalScam uses a pinned public key model to protect against receipt forgery. The server's Ed25519 public verification key is derived deterministically from the authoritative `SIGNING_SECRET_SEED` in the environment:
 
-When the backend starts up, it logs its authoritative public key:
 ```text
-[AUTHORITATIVE SERVER KEY] Ed25519 Public Verification Key: <SERVER_ED25519_PUBLIC_KEY_HEX>
+d6c8c17a86a2b613632827424d85cf1bddd2122e9f8ec0aa6883dbcf72c90002
 ```
 
-The verification endpoint (`GET /api/verify/{receipt_id}`) **strictly verifies** signatures against this authoritative server key, completely ignoring any public keys included inside receipt payloads.
+Anyone can use this authoritative public key to verify the Ed25519 signatures on the `/api/verify` endpoint independently. The server strictly verifies against this pinned key and ignores any client-supplied public keys inside receipts to prevent tampering or forged proofs.
 
 ---
 
