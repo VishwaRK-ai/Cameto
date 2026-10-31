@@ -5,7 +5,6 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg)](https://fastapi.tiangolo.com)
 [![Ed25519 Cryptography](https://img.shields.io/badge/Ed25519-PyNaCl_Transparency_Log-0284c7.svg)](https://pynacl.readthedocs.io)
 [![ChromaDB](https://img.shields.io/badge/ChromaDB-Vector_Store-ff6b6b.svg)](https://www.trychroma.com)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 > **Autonomous Multi-Agent Fact-Verification Tribunal with Cryptographic Ed25519 Verdict Receipts, Multimodal Audio/Vision Heuristic Signals, and Indian Cybercrime Pre-Fill Dossiers.**
 
@@ -19,11 +18,14 @@
    - **Real-Time SSE Streaming**: Emits live tool execution steps to the frontend terminal via Server-Sent Events (`text/event-stream`).
 
 2. **Verifiable Verdict Receipts (Ed25519 Transparency Log)**:
-   - Eliminates blind trust in AI outputs. Signs rich canonical payloads (claim hash, individual evidence snippet hashes, atomic claims breakdown, and verdict).
-   - In-memory seed management loaded via `SIGNING_SECRET_SEED` without insecure disk persistence.
-   - Independent verification endpoint `GET /api/verify/{receipt_id}` for third-party cryptographic auditing.
+   - **Pipeline Integrity**: Receipts prove cryptographic integrity of the LLM pipeline, not absolute truth.
+   - **Privacy-Preserving**: Raw claims are hashed with SHA-256 and never stored in plaintext to protect whistleblower and user privacy.
+   - **Deterministic Signing**: Signs rich canonical payloads (claim hash, individual evidence snippet hashes, atomic claims breakdown, and verdict).
+   - **Fail-Safe Key Management**: Loaded strictly via `SIGNING_SECRET_SEED`. The server crashes loudly on startup if `SIGNING_SECRET_SEED` is missing or invalid, preventing ephemeral key generation that invalidates past receipts.
+   - **Pinned Verification**: Public verification endpoint `GET /api/verify/{receipt_id}` strictly verifies against the server's authoritative pinned public key (ignoring any untrusted client-provided public keys).
+   - **Persistent Storage**: Receipts are persisted in ChromaDB's `verifiable_receipts` collection, ensuring durability across serverless container restarts.
 
-3. **Immutable Wayback Machine Snapshots**:
+3. **Wayback Machine Snapshotted Sources**:
    - Asynchronously triggers non-blocking snapshots (`https://web.archive.org/save/{url}`) with a strict 3-second timeout.
    - Parses response headers to persist actual timestamped snapshot links in every receipt (no wildcards).
 
@@ -37,7 +39,7 @@
 6. **Strict Forensic Hardening**:
    - Strict Indian UPI regex (`@ybl`, `@paytm`, `@upi`, `@sbi`, `@icici`, `@okaxis`, `@axl`, `@ibl`) to eliminate false-positive email flagging.
    - Strict Indian phone number extraction (`+91` or 10-digit mobile).
-   - Certificate Brand Lookalike scanner querying `crt.sh` with `%brand%` wildcards.
+   - Certificate Brand Lookalike scanner querying `crt.sh` with `%brand%` wildcards, filtered via Levenshtein distance `<= 2` to eliminate noise.
 
 ---
 
@@ -69,7 +71,7 @@ flowchart TD
         GoogleFC["Google Fact Check Tools API"]
         CRT["crt.sh Certificate Transparency"]
         Wayback["Wayback Machine Archiver"]
-        Receipts["./receipts/{receipt_id}.json"]
+        Receipts["ChromaDB Storage\n(verifiable_receipts)"]
     end
 
     UI -->|"Media URL / Audio Upload"| Multimodal
@@ -158,7 +160,7 @@ flowchart LR
     end
 
     subgraph Verification["Public Verification"]
-        Store["./receipts/{receipt_id}.json"]
+        Store["ChromaDB Collection\n(verifiable_receipts)"]
         Endpoint["GET /api/verify/{receipt_id}"]
         Status["Verification Status:\ncryptographically_verified"]
     end
@@ -193,7 +195,6 @@ DigitalScam/
 ├── requirements.txt     # Backend Python dependencies (FastAPI, PyNaCl, ChromaDB, Groq, etc.)
 ├── .env.example         # Clean environment configuration template (NO real keys)
 ├── .gitignore           # Enterprise security gitignore excluding all secrets & keys
-├── receipts/            # Public JSON transparency receipts ({receipt_id}.json)
 └── frontend/            # Next.js 14 App Router dashboard
     ├── src/
     │   └── app/
@@ -203,6 +204,19 @@ DigitalScam/
         ├── manifest.json     # PWA Web Share Target manifest (WhatsApp / Twitter share target)
         └── icon.svg          # High-resolution vector security badge
 ```
+
+---
+
+## 🔑 Authoritative Public Key
+
+DigitalScam uses a pinned public key model to protect against receipt forgery. The server's Ed25519 public verification key is derived deterministically from the authoritative `SIGNING_SECRET_SEED` in the environment.
+
+When the backend starts up, it logs its authoritative public key:
+```text
+[AUTHORITATIVE SERVER KEY] Ed25519 Public Verification Key: <SERVER_ED25519_PUBLIC_KEY_HEX>
+```
+
+The verification endpoint (`GET /api/verify/{receipt_id}`) **strictly verifies** signatures against this authoritative server key, completely ignoring any public keys included inside receipt payloads.
 
 ---
 
@@ -216,12 +230,11 @@ DigitalScam/
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/DigitalScam.git
-cd DigitalScam
+git clone https://github.com/VishwaRK-ai/Cameto.git
+cd Cameto
 
 # Install Python dependencies
 pip install -r requirements.txt
-pip install pynacl
 ```
 
 ### 3. Environment Configuration
@@ -243,7 +256,12 @@ PORT=8000
 IMAGE_API_PORT=8001
 ```
 
-*(Note: If `SIGNING_SECRET_SEED` is not provided, `TransparencyLog` generates a secure seed on startup and outputs instructions to add it to `.env`.)*
+> [!IMPORTANT]
+> `SIGNING_SECRET_SEED` is mandatory. The backend requires a 64-character hexadecimal seed (32 bytes) and will crash loudly on startup if missing, ensuring ephemeral restarts never invalidate past receipts.
+> To generate a secure seed:
+> ```bash
+> python3 -c "import secrets; print(secrets.token_hex(32))"
+> ```
 
 ### 4. Hydrate Ground-Truth Database
 
@@ -279,7 +297,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## 🔍 Independent Receipt Verification (CLI)
 
-Every completed audit generates a verifiable receipt. Anyone can verify its cryptographic integrity via curl:
+Every completed audit generates a verifiable receipt stored in ChromaDB. Anyone can verify its cryptographic integrity via curl:
 
 ```bash
 curl -s http://127.0.0.1:8000/api/verify/rcpt_your_receipt_id | jq
@@ -307,15 +325,9 @@ Expected response:
       "timestamp": "2026-10-31T18:05:00Z"
     },
     "archived_sources": [
-      "https://web.archive.org/web/20261031180502/https://news.google.com"
+      "https://web.archive.org/web/20261031180502/https://pib.gov.in/FactCheck/detail.aspx?id=123"
     ]
   }
 }
 ```
-
----
-
-## 🛡️ License
-
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
 

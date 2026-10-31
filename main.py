@@ -66,6 +66,7 @@ class AppState:
     chroma_client: Optional[chromadb.PersistentClient] = None
     collection = None
     radar_collection = None
+    receipts_collection = None
     groq_client: Optional[Any] = None
     transparency_log: Optional[TransparencyLog] = None
 
@@ -93,6 +94,12 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Could not initialize collection 'crowd_radar': {e}")
 
+    try:
+        state.receipts_collection = state.chroma_client.get_or_create_collection(name="verifiable_receipts")
+        logger.info(f"Collection 'verifiable_receipts' ready. Total documents: {state.receipts_collection.count()}")
+    except Exception as e:
+        logger.warning(f"Could not initialize collection 'verifiable_receipts': {e}")
+
     logger.info("Loading SentenceTransformer ('all-MiniLM-L6-v2')...")
     state.embedding_model = await asyncio.to_thread(
         SentenceTransformer, "all-MiniLM-L6-v2"
@@ -111,9 +118,9 @@ async def lifespan(app: FastAPI):
         genai.configure(api_key=gemini_api_key)
         logger.info("Google Gemini client configured.")
 
-    # Initialize Cryptographic Transparency Log (Ed25519)
-    state.transparency_log = TransparencyLog("./receipts")
-    logger.info(f"Ed25519 Transparency Log active. Public Key: {state.transparency_log.get_public_key()}")
+    # Initialize Cryptographic Transparency Log (Ed25519) with ChromaDB persistent storage
+    state.transparency_log = TransparencyLog(receipts_collection=state.receipts_collection)
+    logger.info(f"Ed25519 Transparency Log active. Server Authoritative Public Key: {state.transparency_log.get_public_key()}")
 
     yield
 
@@ -159,10 +166,14 @@ async def async_cache_facts_to_chroma(facts: List[Dict[str, Any]]):
     try:
         documents, metadatas, ids = [], [], []
         for f in facts:
+            url = (f.get("url") or "").strip()
+            # Drop fact if it lacks a real verified source URL
+            if not url or not url.startswith("http") or "news.google.com" in url:
+                continue
+
             claim_text = f.get("claim", "")
             rating = f.get("rating", "Unverified")
             pub = f.get("publisher", "Official Fact-Checker")
-            url = f.get("url", "https://news.google.com")
             title = f.get("title", "")
 
             doc_text = f"Verified Fact: {claim_text}\nRating: {rating}\nSource: {pub} ({title})\nURL: {url}"
@@ -171,6 +182,9 @@ async def async_cache_facts_to_chroma(facts: List[Dict[str, Any]]):
             documents.append(doc_text)
             metadatas.append({"source": url, "url": url, "rating": rating, "publisher": pub, "title": title[:100]})
             ids.append(doc_id)
+
+        if not documents:
+            return
 
         embeddings = await asyncio.to_thread(
             state.embedding_model.encode, documents, convert_to_numpy=True
@@ -436,6 +450,7 @@ async def audit_event_stream(claim: IncomingClaim) -> AsyncGenerator[str, None]:
         confidence_score=confidence,
         verified_sources=matched_sources,
         actual_archived_urls=actual_snapshots,
+        receipts_collection=state.receipts_collection,
     )
     receipt_sig = receipt_doc.get("signature", "")
     receipt_url = f"/api/verify/{receipt_id}"
@@ -535,44 +550,61 @@ async def audit_claim_endpoint(claim: IncomingClaim, request: Request):
 async def verify_verdict_receipt(receipt_id: str) -> VerificationResponse:
     """
     Independent verification endpoint:
-    Returns the cryptographic receipt, canonical rich payload, signature, and Ed25519 public key.
-    Third parties can independently verify the verdict and evidence hashes haven't been tampered with.
+    Fetches the receipt directly from the ChromaDB 'verifiable_receipts' persistent collection.
+    Cryptographically verifies the signature strictly against the server's PINNED authoritative public key.
+    Never trusts client-provided or receipt-bundled public keys.
     """
     clean_id = re.sub(r"[^a-zA-Z0-9_\-]", "", receipt_id)
-    storage_dir = state.transparency_log.storage_dir if state.transparency_log else "./receipts"
-    receipt_path = os.path.join(storage_dir, f"{clean_id}.json")
+    if not state.receipts_collection:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Verifiable receipts database collection is not available."
+        )
 
-    if not os.path.exists(receipt_path):
+    receipt_data = None
+
+    # 1. Primary lookup: ChromaDB verifiable_receipts collection
+    try:
+        res = await asyncio.to_thread(
+            state.receipts_collection.get,
+            ids=[clean_id],
+            include=["documents"]
+        )
+        if res and res.get("documents") and res["documents"]:
+            receipt_data = json.loads(res["documents"][0])
+    except Exception as e:
+        logger.warning(f"ChromaDB lookup note for '{clean_id}': {e}")
+
+    # 2. Fallback lookup: local receipts folder if exists
+    if not receipt_data:
+        legacy_path = os.path.join("./receipts", f"{clean_id}.json")
+        if os.path.exists(legacy_path):
+            try:
+                with open(legacy_path, "r", encoding="utf-8") as f:
+                    receipt_data = json.load(f)
+            except Exception:
+                pass
+
+    if not receipt_data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Cryptographic receipt '{clean_id}' not found in transparency log."
+            detail=f"Cryptographic receipt '{clean_id}' not found in verifiable receipts storage."
         )
 
-    try:
-        with open(receipt_path, "r", encoding="utf-8") as f:
-            receipt_data = json.load(f)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to read receipt document: {str(e)}"
-        )
-
-    payload = receipt_data.get("payload", {})
-    signature = receipt_data.get("signature", "")
-    public_key = receipt_data.get("public_key", "")
-    algorithm = receipt_data.get("algorithm", "Ed25519")
-
+    # Cryptographic Anti-Forgery Lock: Use server's PINNED public key ONLY
+    server_pinned_key = state.transparency_log.get_public_key() if state.transparency_log else ""
     is_valid = False
     if state.transparency_log:
-        is_valid = state.transparency_log.verify_signature(payload, signature, public_key)
+        # Pinned verification: checks strictly against the server's SIGNING_SECRET_SEED
+        is_valid = state.transparency_log.verify_receipt(receipt_data)
 
     return VerificationResponse(
         receipt_id=clean_id,
         is_valid=is_valid,
         verification_status="cryptographically_verified" if is_valid else "signature_mismatch",
-        algorithm=algorithm,
-        public_key=public_key,
-        signature=signature,
+        algorithm="Ed25519",
+        public_key=server_pinned_key,
+        signature=receipt_data.get("signature", ""),
         receipt=receipt_data,
     )
 

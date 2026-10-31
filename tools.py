@@ -175,9 +175,28 @@ def extract_brand_keyword(domain: str = "", text: str = "") -> str:
     return ""
 
 
+def levenshtein_distance(s1: str, s2: str) -> int:
+    """Computes Levenshtein distance between two strings."""
+    if len(s1) < len(s2):
+        return levenshtein_distance(s2, s1)
+    if len(s2) == 0:
+        return len(s1)
+    previous_row = list(range(len(s2) + 1))
+    for i, c1 in enumerate(s1):
+        current_row = [i + 1]
+        for j, c2 in enumerate(s2):
+            insertions = previous_row[j + 1] + 1
+            deletions = current_row[j] + 1
+            substitutions = previous_row[j] + (c1 != c2)
+            current_row.append(min(insertions, deletions, substitutions))
+        previous_row = current_row
+    return previous_row[-1]
+
+
 def _sync_query_crt_sh_brand_lookalikes(brand_keyword: str) -> List[str]:
     """
     Queries crt.sh using %brand% to discover lookalike scam certificates.
+    Filters out noise using strict substring matching or Levenshtein edit distance <= 2.
     Strict 5-second timeout.
     """
     clean_brand = brand_keyword.strip().lower()
@@ -221,16 +240,33 @@ def _sync_query_crt_sh_brand_lookalikes(brand_keyword: str) -> List[str]:
 
     # Exclude common legitimate giant domains
     trusted_giants = {"google.com", "youtube.com", "reddit.com", "twitter.com", "x.com", "github.com", "wikipedia.org"}
-    filtered = [
-        d for d in lookalikes
-        if not any(d == g or d.endswith(f".{g}") for g in trusted_giants)
-    ]
+    filtered = []
+    for d in lookalikes:
+        if any(d == g or d.endswith(f".{g}") for g in trusted_giants):
+            continue
+        clean_cand = d.lower()
+        # Direct substring match
+        is_match = clean_brand in clean_cand
+        if not is_match:
+            # Check individual tokens for edit distance <= 2
+            tokens = re.split(r"[\.\-_]", clean_cand)
+            is_match = any(
+                abs(len(t) - len(clean_brand)) <= 2 and levenshtein_distance(t, clean_brand) <= 2
+                for t in tokens if len(t) >= 3
+            )
+        if is_match:
+            filtered.append(d)
+
     return sorted(filtered)[:10]
 
 
 async def query_crt_sh_brand_lookalikes(brand_keyword: str) -> List[str]:
     """Asynchronously queries crt.sh for Certificate Brand Lookalikes."""
     return await asyncio.to_thread(_sync_query_crt_sh_brand_lookalikes, brand_keyword)
+
+
+# Alias for backward compatibility
+query_crt_sh_siblings = query_crt_sh_brand_lookalikes
 
 
 # ---------------------------------------------------------
@@ -264,11 +300,14 @@ def _sync_query_google_fact_check(query_text: str, search_query: Optional[str] =
                 reviews = c.get("claimReview", [])
                 if reviews:
                     rev = reviews[0]
+                    source_url = (rev.get("url") or rev.get("publisher", {}).get("site", "") or "").strip()
+                    if not source_url or not source_url.startswith("http") or "news.google.com" in source_url:
+                        continue
                     claims_found.append({
                         "claim": c.get("text", ""),
                         "rating": rev.get("textualRating", "Unverified"),
                         "publisher": rev.get("publisher", {}).get("name", "Fact-Checker"),
-                        "url": rev.get("url") or rev.get("publisher", {}).get("site", ""),
+                        "url": source_url,
                         "title": rev.get("title", ""),
                     })
             if claims_found:
@@ -292,11 +331,14 @@ def _sync_query_google_fact_check(query_text: str, search_query: Optional[str] =
                 reviews = c.get("claimReview", [])
                 if reviews:
                     rev = reviews[0]
+                    source_url = (rev.get("url") or rev.get("publisher", {}).get("site", "") or "").strip()
+                    if not source_url or not source_url.startswith("http") or "news.google.com" in source_url:
+                        continue
                     claims_found.append({
                         "claim": c.get("text", ""),
                         "rating": rev.get("textualRating", "Unverified"),
                         "publisher": rev.get("publisher", {}).get("name", "Fact-Checker"),
-                        "url": rev.get("url") or rev.get("publisher", {}).get("site", ""),
+                        "url": source_url,
                         "title": rev.get("title", ""),
                     })
     except Exception as e:
