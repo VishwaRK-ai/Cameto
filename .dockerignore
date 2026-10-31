@@ -1,0 +1,13 @@
+.env
+.env*.local
+frontend/.env.local
+receipts/transparency_signing_key.json
+*.pem
+__pycache__
+*.py[cod]
+*$py.class
+.git
+.gitignore
+frontend/node_modules
+frontend/.next
+
