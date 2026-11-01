@@ -472,7 +472,7 @@ export default function Dashboard() {
       label: currentResult.claim_text.slice(0, 32) + "...",
       detail: currentResult.claim_text,
       group: "claim",
-      val: 26,
+      val: 10,
       color: style.color,
     });
 
@@ -492,15 +492,15 @@ export default function Dashboard() {
           ? "Moderate synthetic anomalies detected by heuristic analyzer."
           : "Media passes heuristic synthetic generation authenticity checks.",
       group: "deepfake",
-      val: 18,
-      color: dfScore !== null && dfScore > 75 ? "#f43f5e" : "#a855f7",
+      val: 7.5,
+      color: dfScore !== null && dfScore > 75 ? "#f43f5e" : "#c084fc",
     });
 
     links.push({
       source: "claim",
       target: "deepfake",
       label: "Synthetic Signal Inspection",
-      color: "#9333ea",
+      color: "#c084fc",
     });
 
     // Multi-Agent Debate Nodes
@@ -511,14 +511,14 @@ export default function Dashboard() {
         label: "Prosecutor Debunk",
         detail: currentResult.red_team_argument,
         group: "red_team",
-        val: 16,
+        val: 6.5,
         color: "#f43f5e",
       });
       links.push({
         source: "claim",
         target: "red_team",
         label: "Prosecution Arg",
-        color: "#f43f5e",
+        color: "#fb7185",
       });
     }
 
@@ -529,14 +529,14 @@ export default function Dashboard() {
         label: "Defender Nuance",
         detail: currentResult.blue_team_argument,
         group: "blue_team",
-        val: 16,
+        val: 6.5,
         color: "#3b82f6",
       });
       links.push({
         source: "claim",
         target: "blue_team",
         label: "Defense Arg",
-        color: "#3b82f6",
+        color: "#60a5fa",
       });
     }
 
@@ -559,7 +559,7 @@ export default function Dashboard() {
           label: ac.sub_claim.slice(0, 24) + "...",
           detail: `[${ac.verdict}] ${ac.sub_claim}${ac.exact_quote ? ` (Citation: "${ac.exact_quote}")` : ""}`,
           group: "sub_claim",
-          val: 14,
+          val: 5.5,
           color: subColor,
         });
 
@@ -582,7 +582,7 @@ export default function Dashboard() {
           label: sDom,
           detail: `Certificate Transparency discovered sibling scam domain: ${sDom}`,
           group: "sibling_domain",
-          val: 13,
+          val: 5,
           color: "#ef4444",
         });
 
@@ -590,7 +590,7 @@ export default function Dashboard() {
           source: "claim",
           target: sId,
           label: "Lookalike Infrastructure",
-          color: "#ef4444",
+          color: "#f87171",
         });
       });
     }
@@ -618,7 +618,7 @@ export default function Dashboard() {
           detail: src,
           url: src.startsWith("http") ? src : undefined,
           group: "source",
-          val: 14,
+          val: 5.5,
           color: "#06b6d4",
         });
 
@@ -626,13 +626,32 @@ export default function Dashboard() {
           source: "claim",
           target: sourceId,
           label: "Ground Truth",
-          color: "#06b6d4",
+          color: "#22d3ee",
         });
       });
     }
 
     return { nodes, links };
   }, [currentResult]);
+
+  // Optimize D3 layout physics: Increase charge repulsion and link distance to spread nodes out naturally
+  useEffect(() => {
+    if (graphRef.current) {
+      try {
+        const chargeForce = graphRef.current.d3Force("charge");
+        if (chargeForce && typeof chargeForce.strength === "function") {
+          chargeForce.strength(-350);
+        }
+        const linkForce = graphRef.current.d3Force("link");
+        if (linkForce && typeof linkForce.distance === "function") {
+          linkForce.distance(105);
+        }
+        graphRef.current.d3ReheatSimulation?.();
+      } catch (err) {
+        console.warn("Could not configure D3 forces:", err);
+      }
+    }
+  }, [graphData]);
 
   return (
     <div className="min-h-screen bg-[#070b14] text-slate-100 flex flex-col font-sans">
@@ -1480,42 +1499,62 @@ export default function Dashboard() {
 
                     {/* 2D Canvas Force Graph */}
                     <div className="flex justify-center items-center w-full overflow-x-auto mx-auto my-6">
-                      <div className="h-[380px] w-full max-w-full bg-slate-950 rounded-xl border border-slate-800 overflow-hidden relative flex justify-center items-center">
+                      <div className="h-[440px] w-full max-w-full bg-slate-950 rounded-xl border border-slate-800 overflow-hidden relative flex justify-center items-center">
                         <ForceGraph2D
                           ref={graphRef}
                           graphData={graphData}
-                          nodeRelSize={6}
+                          nodeRelSize={3}
                           nodeLabel={(node: any) => `${node.name}\n${node.detail || ""}`}
-                          cooldownTicks={100}
-                          onEngineStop={() => graphRef.current?.zoomToFit(400, 24)}
+                          cooldownTicks={120}
+                          d3AlphaDecay={0.02}
+                          d3VelocityDecay={0.3}
+                          onEngineStop={() => graphRef.current?.zoomToFit(400, 30)}
                           nodeCanvasObject={(node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
                             const label = node.label || node.name;
-                            const fontSize = 11 / globalScale;
-                            ctx.font = `${fontSize}px Sans-Serif`;
+                            const radius = node.val || 5;
 
                             // Outer node circle
                             ctx.beginPath();
-                            ctx.arc(node.x, node.y, node.val || 8, 0, 2 * Math.PI, false);
+                            ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI, false);
                             ctx.fillStyle = node.color || "#06b6d4";
                             ctx.fill();
 
-                            // Inner glow highlight
+                            // Crisp high-contrast border
+                            ctx.lineWidth = 1.2 / globalScale;
+                            ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
+                            ctx.stroke();
+
+                            // Inner specular glow highlight
                             ctx.beginPath();
-                            ctx.arc(node.x, node.y, (node.val || 8) * 0.45, 0, 2 * Math.PI, false);
-                            ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
+                            ctx.arc(node.x, node.y, radius * 0.45, 0, 2 * Math.PI, false);
+                            ctx.fillStyle = "rgba(255, 255, 255, 0.65)";
                             ctx.fill();
 
-                            // Text label under node
+                            // Label styling: render below node with semi-transparent dark pill background for ultra-crisp legibility
+                            const fontSize = 9.5 / globalScale;
+                            ctx.font = `600 ${fontSize}px ui-sans-serif, system-ui, -apple-system, sans-serif`;
+                            const yOffset = radius + 6 / globalScale;
+                            const textWidth = ctx.measureText(label).width;
+
+                            ctx.fillStyle = "rgba(7, 11, 20, 0.85)";
+                            ctx.fillRect(
+                              node.x - textWidth / 2 - 3 / globalScale,
+                              node.y + yOffset - fontSize / 2 - 1 / globalScale,
+                              textWidth + 6 / globalScale,
+                              fontSize + 3 / globalScale
+                            );
+
                             ctx.textAlign = "center";
                             ctx.textBaseline = "middle";
-                            ctx.fillStyle = "#f8fafc";
-                            ctx.fillText(label, node.x, node.y + (node.val || 8) + 10 / globalScale);
+                            ctx.fillStyle = "#f1f5f9";
+                            ctx.fillText(label, node.x, node.y + yOffset);
                           }}
-                          linkColor={() => "#334155"}
-                          linkWidth={1.5}
-                          linkDirectionalParticles={2}
-                          linkDirectionalParticleSpeed={0.006}
-                          linkDirectionalParticleWidth={2}
+                          linkColor={(link: any) => link.color || "#22d3ee"}
+                          linkWidth={2.5}
+                          linkDirectionalParticles={4}
+                          linkDirectionalParticleSpeed={0.007}
+                          linkDirectionalParticleWidth={3}
+                          linkDirectionalParticleColor={() => "#ffffff"}
                           backgroundColor="#070b14"
                           onNodeClick={(node: any) => {
                             setSelectedNode(node);
@@ -1528,7 +1567,7 @@ export default function Dashboard() {
                         {/* Reset Zoom Button */}
                         <button
                           type="button"
-                          onClick={() => graphRef.current?.zoomToFit(400)}
+                          onClick={() => graphRef.current?.zoomToFit(400, 30)}
                           className="absolute bottom-3 right-3 p-2 rounded-lg bg-slate-900/80 hover:bg-slate-800 text-slate-300 border border-slate-700 text-xs flex items-center space-x-1"
                           title="Reset Graph Zoom"
                         >
