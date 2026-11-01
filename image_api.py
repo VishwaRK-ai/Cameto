@@ -143,18 +143,35 @@ def clean_json_response(raw_text: str) -> Dict[str, Any]:
 
 def download_image(url: str, timeout_seconds: float = 12.0) -> tuple[bytes, str]:
     """
-    Downloads image from URL into memory. Returns (image_bytes, mime_type).
+    Downloads image from URL or decodes base64 data URL into memory. Returns (image_bytes, mime_type).
     """
-    parsed = urlparse(url.strip())
+    url_str = url.strip()
+    if url_str.startswith("data:"):
+        try:
+            header, encoded = url_str.split(",", 1)
+            mime_type = "image/jpeg"
+            if ";" in header:
+                mime_part = header.split(";")[0]
+                if ":" in mime_part:
+                    mime_type = mime_part.split(":")[1].strip().lower()
+            import base64
+            image_bytes = base64.b64decode(encoded)
+            if not image_bytes:
+                raise ValueError("Decoded base64 image content is empty.")
+            return image_bytes, mime_type
+        except Exception as e:
+            raise ValueError(f"Invalid base64 data URL: {e}")
+
+    parsed = urlparse(url_str)
     if not parsed.scheme or parsed.scheme not in ("http", "https"):
-        raise ValueError(f"Invalid URL scheme: {url}")
+        raise ValueError(f"Invalid URL scheme: {url_str}")
     if not parsed.netloc:
-        raise ValueError(f"Invalid URL domain: {url}")
+        raise ValueError(f"Invalid URL domain: {url_str}")
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) GeminiFactCheckBot/1.0"
     }
-    response = requests.get(url, headers=headers, timeout=timeout_seconds)
+    response = requests.get(url_str, headers=headers, timeout=timeout_seconds)
     response.raise_for_status()
 
     content = response.content
@@ -164,9 +181,9 @@ def download_image(url: str, timeout_seconds: float = 12.0) -> tuple[bytes, str]
     content_type = response.headers.get("Content-Type", "").split(";")[0].strip().lower()
     if not content_type or "image" not in content_type:
         # Infer MIME type from URL extension or default to image/jpeg
-        if url.lower().endswith(".png"):
+        if url_str.lower().endswith(".png"):
             content_type = "image/png"
-        elif url.lower().endswith(".webp"):
+        elif url_str.lower().endswith(".webp"):
             content_type = "image/webp"
         else:
             content_type = "image/jpeg"

@@ -143,6 +143,7 @@ const PRESET_CLAIMS = [
 export default function Dashboard() {
   const [claimText, setClaimText] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [imageFileName, setImageFileName] = useState("");
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [platform, setPlatform] = useState("Reddit");
   const [isLoading, setIsLoading] = useState(false);
@@ -411,6 +412,7 @@ export default function Dashboard() {
   const loadPreset = (preset: typeof PRESET_CLAIMS[0]) => {
     setClaimText(preset.claim);
     setImageUrl(preset.imageUrl);
+    setImageFileName(preset.imageUrl ? "Preset Image Sample" : "");
     setPlatform(preset.platform);
     setAudioFile(null);
     setErrorMessage(null);
@@ -763,30 +765,57 @@ export default function Dashboard() {
                   />
                 </div>
 
-                {/* Attached Image URL */}
+                {/* Attached Image / Screenshot File Upload */}
                 <div>
                   <label className="block text-xs font-medium text-slate-300 mb-1.5 flex items-center justify-between">
                     <span className="flex items-center space-x-1.5">
                       <ImageIcon className="w-3.5 h-3.5 text-cyan-400" />
-                      <span>Attached Image / Screenshot URL (Optional for Vision Audit)</span>
+                      <span>Attached Image / Screenshot (Optional for Vision Audit)</span>
                     </span>
                     {imageUrl && (
-                      <span className="text-[10px] text-cyan-400 font-mono">Image attached</span>
+                      <span className="text-[10px] text-emerald-400 font-mono">
+                        {imageFileName ? imageFileName : "Image attached (Base64)"}
+                      </span>
                     )}
                   </label>
-                  <div className="relative">
-                    <input
-                      type="url"
-                      value={imageUrl}
-                      onChange={(e) => setImageUrl(e.target.value)}
-                      placeholder="https://.../viral-post-image.jpg"
-                      className="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500 transition"
-                    />
+                  <div className="flex items-center space-x-2">
+                    <label className="flex-1 cursor-pointer flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-slate-950/80 border border-slate-800 hover:border-slate-700 transition text-xs text-slate-300">
+                      <div className="flex items-center space-x-2 truncate">
+                        <UploadCloud className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+                        <span className="truncate">
+                          {imageFileName || (imageUrl ? "Image attached (Base64)" : "Upload screenshot or image file (PNG, JPG, WebP)...")}
+                        </span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded bg-slate-800 text-[10px] text-slate-400 font-medium">
+                        Browse
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            const file = e.target.files[0];
+                            setImageFileName(file.name);
+                            const reader = new FileReader();
+                            reader.onload = () => {
+                              if (typeof reader.result === "string") {
+                                setImageUrl(reader.result);
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                        className="hidden"
+                      />
+                    </label>
                     {imageUrl && (
                       <button
                         type="button"
-                        onClick={() => setImageUrl("")}
-                        className="absolute right-2.5 top-2.5 text-xs text-slate-500 hover:text-slate-300"
+                        onClick={() => {
+                          setImageUrl("");
+                          setImageFileName("");
+                        }}
+                        className="px-3 py-2.5 text-xs text-rose-400 hover:text-rose-300 rounded-xl bg-rose-500/10 border border-rose-500/20"
                       >
                         Clear
                       </button>
@@ -857,7 +886,7 @@ export default function Dashboard() {
                   </div>
                   <button
                     type="submit"
-                    disabled={isLoading || (!claimText.trim() && !audioFile)}
+                    disabled={isLoading || (!claimText.trim() && !audioFile && !imageUrl)}
                     className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 via-indigo-600 to-rose-500 hover:opacity-90 text-white font-semibold text-sm shadow-lg shadow-cyan-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 transition"
                   >
                     {isLoading ? (
