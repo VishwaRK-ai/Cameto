@@ -1479,59 +1479,63 @@ export default function Dashboard() {
                     </div>
 
                     {/* 2D Canvas Force Graph */}
-                    <div className="h-[380px] w-full bg-slate-950 rounded-xl border border-slate-800 overflow-hidden relative">
-                      <ForceGraph2D
-                        ref={graphRef}
-                        graphData={graphData}
-                        nodeRelSize={6}
-                        nodeLabel={(node: any) => `${node.name}\n${node.detail || ""}`}
-                        nodeCanvasObject={(node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
-                          const label = node.label || node.name;
-                          const fontSize = 11 / globalScale;
-                          ctx.font = `${fontSize}px Sans-Serif`;
+                    <div className="flex justify-center items-center w-full overflow-x-auto mx-auto my-6">
+                      <div className="h-[380px] w-full max-w-full bg-slate-950 rounded-xl border border-slate-800 overflow-hidden relative flex justify-center items-center">
+                        <ForceGraph2D
+                          ref={graphRef}
+                          graphData={graphData}
+                          nodeRelSize={6}
+                          nodeLabel={(node: any) => `${node.name}\n${node.detail || ""}`}
+                          cooldownTicks={100}
+                          onEngineStop={() => graphRef.current?.zoomToFit(400, 24)}
+                          nodeCanvasObject={(node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
+                            const label = node.label || node.name;
+                            const fontSize = 11 / globalScale;
+                            ctx.font = `${fontSize}px Sans-Serif`;
 
-                          // Outer node circle
-                          ctx.beginPath();
-                          ctx.arc(node.x, node.y, node.val || 8, 0, 2 * Math.PI, false);
-                          ctx.fillStyle = node.color || "#06b6d4";
-                          ctx.fill();
+                            // Outer node circle
+                            ctx.beginPath();
+                            ctx.arc(node.x, node.y, node.val || 8, 0, 2 * Math.PI, false);
+                            ctx.fillStyle = node.color || "#06b6d4";
+                            ctx.fill();
 
-                          // Inner glow highlight
-                          ctx.beginPath();
-                          ctx.arc(node.x, node.y, (node.val || 8) * 0.45, 0, 2 * Math.PI, false);
-                          ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
-                          ctx.fill();
+                            // Inner glow highlight
+                            ctx.beginPath();
+                            ctx.arc(node.x, node.y, (node.val || 8) * 0.45, 0, 2 * Math.PI, false);
+                            ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
+                            ctx.fill();
 
-                          // Text label under node
-                          ctx.textAlign = "center";
-                          ctx.textBaseline = "middle";
-                          ctx.fillStyle = "#f8fafc";
-                          ctx.fillText(label, node.x, node.y + (node.val || 8) + 10 / globalScale);
-                        }}
-                        linkColor={() => "#334155"}
-                        linkWidth={1.5}
-                        linkDirectionalParticles={2}
-                        linkDirectionalParticleSpeed={0.006}
-                        linkDirectionalParticleWidth={2}
-                        backgroundColor="#070b14"
-                        onNodeClick={(node: any) => {
-                          setSelectedNode(node);
-                          if (node.url && node.url.startsWith("http")) {
-                            window.open(node.url, "_blank");
-                          }
-                        }}
-                      />
+                            // Text label under node
+                            ctx.textAlign = "center";
+                            ctx.textBaseline = "middle";
+                            ctx.fillStyle = "#f8fafc";
+                            ctx.fillText(label, node.x, node.y + (node.val || 8) + 10 / globalScale);
+                          }}
+                          linkColor={() => "#334155"}
+                          linkWidth={1.5}
+                          linkDirectionalParticles={2}
+                          linkDirectionalParticleSpeed={0.006}
+                          linkDirectionalParticleWidth={2}
+                          backgroundColor="#070b14"
+                          onNodeClick={(node: any) => {
+                            setSelectedNode(node);
+                            if (node.url && node.url.startsWith("http")) {
+                              window.open(node.url, "_blank");
+                            }
+                          }}
+                        />
 
-                      {/* Reset Zoom Button */}
-                      <button
-                        type="button"
-                        onClick={() => graphRef.current?.zoomToFit(400)}
-                        className="absolute bottom-3 right-3 p-2 rounded-lg bg-slate-900/80 hover:bg-slate-800 text-slate-300 border border-slate-700 text-xs flex items-center space-x-1"
-                        title="Reset Graph Zoom"
-                      >
-                        <Maximize2 className="w-3.5 h-3.5" />
-                        <span>Center</span>
-                      </button>
+                        {/* Reset Zoom Button */}
+                        <button
+                          type="button"
+                          onClick={() => graphRef.current?.zoomToFit(400)}
+                          className="absolute bottom-3 right-3 p-2 rounded-lg bg-slate-900/80 hover:bg-slate-800 text-slate-300 border border-slate-700 text-xs flex items-center space-x-1"
+                          title="Reset Graph Zoom"
+                        >
+                          <Maximize2 className="w-3.5 h-3.5" />
+                          <span>Center</span>
+                        </button>
+                      </div>
                     </div>
 
                     {/* Selected Node Details Bar */}
