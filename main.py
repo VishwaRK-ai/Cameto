@@ -162,14 +162,15 @@ allowed_origins_env = os.getenv(
 )
 allowed_origins = [orig.strip() for orig in allowed_origins_env.split(",") if orig.strip()]
 
+
+# MUST BE ADDED RIGHT AFTER app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["*"],         # Allows all domains (Vercel, localhost, etc.)
+    allow_credentials=False,     # MUST be False when origins is "*"
+    allow_methods=["*"],         # Allows all HTTP methods (GET, POST, etc.)
+    allow_headers=["*"],         # Allows all headers
 )
-
 
 # ---------------------------------------------------------
 # Background Vector Cache Task
