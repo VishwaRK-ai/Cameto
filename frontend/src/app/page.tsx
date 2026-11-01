@@ -226,8 +226,8 @@ export default function Dashboard() {
 
   const handleRunAudit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!claimText.trim() && !audioFile) {
-      setErrorMessage("Please enter a viral claim text or upload a voice note audio file (.mp3, .wav, .ogg) to audit.");
+    if (!claimText.trim() && !audioFile && !imageUrl.trim()) {
+      setErrorMessage("Please enter a viral claim text, upload an image/screenshot, or upload a voice note audio file (.mp3, .wav, .ogg) to audit.");
       return;
     }
 
@@ -297,16 +297,16 @@ export default function Dashboard() {
         }
       }
 
-      // Determine effective claim text: text input takes priority, then audio transcription, then OCR text
+      // Determine effective claim text: check if claimText is empty but an image is attached
       let effectiveClaim = claimText.trim();
-      if (!effectiveClaim && audioTranscription) {
+      if (!effectiveClaim && effectiveImageUrl) {
+        effectiveClaim = "Analyze the attached image. Extract any text, links, or claims from it and verify if it is a scam.";
+      } else if (!effectiveClaim && audioTranscription) {
         effectiveClaim = audioTranscription;
-      }
-      if (!effectiveClaim && ocrExtractedText) {
+      } else if (!effectiveClaim && ocrExtractedText) {
         effectiveClaim = ocrExtractedText;
-      }
-      if (!effectiveClaim) {
-        effectiveClaim = "Voice note media audit request without transcribed speech.";
+      } else if (!effectiveClaim) {
+        effectiveClaim = "Analyze the attached image. Extract any text, links, or claims from it and verify if it is a scam.";
       }
 
       // Step 2: Agentic Live Evidence Retrieval, Crowd Radar & Multi-Agent Debate
