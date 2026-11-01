@@ -9,7 +9,8 @@
 [![Google Gemini](https://img.shields.io/badge/Google_Gemini-3.8_Flash_Multimodal-4285F4.svg)](https://ai.google.dev)
 [![Groq](https://img.shields.io/badge/Groq-Ultra_Fast_LPU_Inference-f55036.svg)](https://groq.com)
 
-🚀 **Live Demo:** [DigitalScam / Cameto on Vercel](https://frontend-sand-three-14.vercel.app/)
+🚀 **Live Demo:** [DigitalScam / Cameto on Vercel](https://frontend-sand-three-14.vercel.app/) 
+
 
 > **DigitalScam (Cameto)** is an enterprise-grade, autonomous ReAct multi-agent intelligence system designed to combat viral misinformation, financial phishing scams, synthetic deepfake audio/imagery, and fraudulent Indian payment infrastructure. Every audit is backed by **mathematically unforgeable Ed25519 cryptographic receipts**, live OSINT forensic scanning, and automated pre-filled Indian cybercrime incident reporting dossiers.
 
