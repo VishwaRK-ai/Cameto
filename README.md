@@ -17,35 +17,40 @@
 
 ## 🌟 Core Pipeline Features & Innovations
 
-### 1. 🎙️ Multimodal Forensic Ingestion (Text, Audio, Base64 Images)
-- **Text & Viral Posts**: Analyzes social media posts across Reddit, Twitter/X, and WhatsApp in English, Hindi, and Hinglish.
-- **WhatsApp Voice Notes (`.mp3`, `.wav`, `.ogg`)**: Ingests audio files, performs Gemini 3.8 Flash speech transcription, and calculates synthetic voice-cloning heuristic signals.
-- **Image & Screenshot Forensics (Base64 File Upload)**: Accepts screenshot uploads encoded as Base64 Data URLs with Gemini 3.8 Flash Optical Character Recognition (OCR) and visual heuristic synthetic anomaly detection.
-- **Zero-Text Fallback Logic**: Allows image-only audits without user-typed text. The frontend automatically injects an authoritative inspection prompt (`"Analyze the attached image. Extract any text, links, or claims from it and verify if it is a scam."`) to satisfy Pydantic schema validation while directing the AI tribunal to rely entirely on visual evidence.
+### 1. 🎙️ True Multimodal Inputs
+- **Comprehensive Format Ingestion**: Supports standard text claims, WhatsApp audio voice notes (`.wav`, `.mp3`, `.ogg`), and image screenshot uploads via Base64 encoding.
+- **Intelligent Zero-Text Fallback Mode**: Allows image-only audits without requiring user-typed text. When a citizen uploads a screenshot with no text, the system auto-injects an authoritative forensic extraction prompt (`"Analyze the attached image. Extract any text, links, or claims from it and verify if it is a scam."`) to satisfy Pydantic schema validation while directing the multimodal Vision API (Google Gemini 3.8 Flash) to extract OCR text and detect visual manipulation.
+- **Acoustic & Visual Synthetic Heuristics**: Evaluates audio spectrograms for speech anomalies and AI voice-cloning artifacts while detecting visual deepfake signals ($0.0 - 100.0\%$).
 
-### 2. 🔍 Live OSINT Forensic Tools
-- **WHOIS Domain Age Inspection**: Extracts URLs via hardened regex patterns and queries WHOIS registration dates asynchronously. Automatically flags domains younger than 6 months (180 days) as critical phishing vectors.
-- **Certificate Transparency (`crt.sh`) Brand Lookalikes**: Scans CT logs for lookalike domains targeting high-profile entities (e.g., SBI, Paytm, Mudra, Nirmala Sitharaman, SEBI). Uses **Levenshtein distance $\le 2$** and token substring matching to filter out noise and expose fraudulent infrastructure clusters.
-- **Strict Indian Financial Identifier Extraction**: Hardened regex patterns extract Indian UPI handles (`@ybl`, `@paytm`, `@upi`, `@sbi`, `@icici`, `@okaxis`, `@axl`, `@ibl`) and Indian phone numbers (`+91` / 10-digit mobile) to prevent false-positive email captures.
-- **Privacy-Preserving Crowd Radar**: Tracks network-wide viral scam proliferation using SHA-256 claim hashes as document IDs in ChromaDB, preventing count inflation while protecting whistleblower privacy.
-
-### 3. ⚖️ Autonomous Multi-Agent Debate Tribunal
-- **Parallel ReAct Debate**: Spawns **Agent A (The Prosecutor)** and **Agent B (The Defender)** concurrently via `asyncio.gather`. Agent A challenges deceptive tactics and flags Indicators of Compromise (IoCs), while Agent B advocates context and assesses possible partial truths.
-- **The Judge Arbitrator**: Synthesizes both arguments, deconstructs claims into atomic verifiable sub-claims, detects dialect/language, assigns a calibrated confidence score, and authors a concise WhatsApp counter-misinformation message.
+### 2. ⚖️ Multi-Agent Tribunal
+- **Parallel ReAct Debate**: Spawns **Agent A (The Prosecutor)** and **Agent B (The Defender)** concurrently via `asyncio.gather` to vigorously debate the evidence, completely eliminating single-LLM confirmation bias.
+- **Adversarial Scrutiny**: Agent A actively challenges deceptive framing, high-yield financial bait, and social engineering tricks using ground-truth citations. Agent B advocates context, historical facts, and potential partial truths.
+- **The Judge Arbitrator**: Synthesizes both arguments, deconstructs viral claims into atomic verifiable sub-claims with individual color-coded badges, detects input language/dialect (English, Hindi, Hinglish), and authors a WhatsApp-ready counter-misinformation message.
 - **Anti-Hallucination Citation Verification**: Verifies quote citations strictly against specific ground-truth evidence snippets before rendering verdicts.
 
-### 4. 🧠 Dynamic Vector Cache (Organic RAG)
-- **Living Vector Memory**: Live fact-checks fetched from Google Fact Check Tools API are asynchronously vectorized using Google Gemini's `models/text-embedding-004` (with an ultra-lightweight SHA-256 deterministic fallback) and cached into ChromaDB's `verified_facts` collection.
+### 3. 🕸️ Interactive Provenance Graph & Citations
+- **Dynamic 2D Visual Mapping**: Visually maps the entire scam infrastructure—connecting the viral claim to live verified fact citations, heuristic synthetic signal nodes, and Certificate Transparency lookalike domains via an interactive, centered `react-force-graph-2d` canvas.
+- **Optimized Force Physics**: Features tuned D3 layout physics with strong charge repulsion (`strength: -350`) and expanded link distance (`distance: 105`) so nodes naturally spread apart on load without overlapping.
+- **Strictly Grounded Live Citations**: Delivers high-contrast, glowing edges linking directly to official fact-checking registries (PIB, AltNews, BOOM FactCheck, Google Fact Check Tools API) with direct quote verification, completely eliminating AI hallucinations.
+
+### 4. 🚨 Automated FIR / Cybercrime Dossier
+- **Automated Incident Compiling**: Automatically compiles the extracted Indicators of Compromise (IoCs)—including suspicious domain age (< 180 days), Certificate Transparency lookalikes, strict Indian UPI handles (`@paytm`, `@ybl`, `@sbi`, etc.), and phone numbers—into a pre-filled Markdown report.
+- **Ready for Immediate Submission**: Formatted for immediate one-click submission to the **1930 National Cybercrime Helpline**, the **National Cyber Crime Reporting Portal** ([cybercrime.gov.in](https://cybercrime.gov.in)), and the **DoT Sanchar Saathi (Chakshu)** telecom fraud portal.
+- **Court-Admissible Evidence Anchoring**: Embeds deterministic SHA-256 evidence hashes and timestamped Wayback Machine archive links directly into the dossier.
+
+### 5. 🔏 Tamper-Proof Cryptography (Ed25519 Transparency Log)
+- **Mathematical Integrity Proof**: Anchors every single audit with an Ed25519 cryptographic signature, generating a verifiable receipt ID (`rcpt_...`) so authorities, law enforcement, and citizens know the forensic evidence and LLM reasoning have not been altered or tampered with.
+- **Pinned Key Anti-Forgery Lock**: Verification endpoint `GET /api/verify/{receipt_id}` strictly verifies signatures against the server's authoritative pinned key (`d6c8c17a86a2b613632827424d85cf1bddd2122e9f8ec0aa6883dbcf72c90002`), completely rejecting external or client-supplied public keys to prevent forged receipts.
+- **Persistent Serverless Storage**: Receipts are persisted directly in ChromaDB's `verifiable_receipts` collection, ensuring receipt permanence across container cold-starts and restarts.
+
+### 6. 🔍 Live OSINT Forensic Tools & Privacy-Preserving Crowd Radar
+- **WHOIS Domain Age Inspection**: Extracts URLs via hardened regex patterns and queries WHOIS registration dates asynchronously, automatically flagging domains younger than 6 months (180 days) as critical phishing vectors.
+- **Certificate Transparency (`crt.sh`) Brand Lookalikes**: Scans CT logs for lookalike domains targeting high-profile entities (e.g., SBI, Paytm, Mudra, Nirmala Sitharaman, SEBI). Uses **Levenshtein distance $\le 2$** and token substring matching to filter out noise and expose fraudulent infrastructure clusters.
+- **Privacy-Preserving Crowd Radar**: Tracks network-wide viral scam proliferation using SHA-256 claim hashes as document IDs in ChromaDB, preventing count inflation while protecting whistleblower privacy.
+
+### 7. 🧠 Dynamic Vector Cache (Organic RAG Memory)
+- **Living Vector Memory**: Live fact-checks fetched from Google Fact Check Tools API are asynchronously vectorized using Google Gemini's `models/text-embedding-004` (with an ultra-lightweight SHA-256 deterministic fallback) and cached into ChromaDB's `verified_facts` collection, allowing the database to grow organically.
 - **Zero-Bloat Cloud Optimization**: Completely eliminates heavy local ML frameworks (`torch`, `sentence-transformers`) to run reliably with < 50MB RAM on free-tier containers.
-
-### 5. 🔏 Verifiable Verdict Receipts (Ed25519 Transparency Log)
-- **Pipeline Integrity Proof**: Receipts mathematically prove the integrity of the LLM pipeline, verifying that input claims, evidence snippets, and sub-claims were not manipulated post-audit.
-- **Pinned Key Anti-Forgery Lock**: Verification endpoint `GET /api/verify/{receipt_id}` verifies signatures strictly against the server's pinned public key derived from `SIGNING_SECRET_SEED`, rejecting any client-supplied keys.
-- **Persistent Serverless Storage**: Receipts are persisted in ChromaDB's `verifiable_receipts` collection, ensuring receipt permanence across container cold-starts.
-
-### 6. 🚨 Actionable Incident Reporting (Cybercrime Pre-Fill Dossier)
-- Generates an official incident dossier formatted for Indian authorities: **cybercrime.gov.in**, the **1930 Financial Fraud Helpline**, and the **DoT Sanchar Saathi (Chakshu)** portal.
-- One-click export downloads a structured Markdown report detailing accused UPIs, suspect domains, registrar timestamps, and cryptographic receipt hashes.
 
 ---
 
